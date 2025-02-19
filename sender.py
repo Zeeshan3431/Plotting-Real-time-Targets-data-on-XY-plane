@@ -13,13 +13,13 @@ def initialize_targets():
     """
     targets = []
     for _ in range(5):
-        x_position = random.uniform(0, 1000)
-        y_position = random.uniform(0, 1000)
-        z_position = random.uniform(0, 500)
-        dx = random.uniform(-5, 5)
-        dy = random.uniform(-5, 5)
-        dz = random.uniform(-2, 2)
-        speed = random.uniform(50, 300)
+        x_position = random.uniform(0, 1500)
+        y_position = random.uniform(0, 1500)
+        z_position = random.uniform(0, 500)  # Z is limited to 500
+        dx = random.uniform(-5, 10)
+        dy = random.uniform(-5, 10)
+        dz = random.uniform(-5, 5)
+        speed = random.uniform(10, 15)
 
         targets.append({
             "position": [x_position, y_position, z_position],
@@ -32,17 +32,17 @@ def initialize_targets():
 def update_positions(targets):
     """
     Updates the positions of the targets based on their motion vectors
-    and ensures positions stay within predefined boundaries.
+    and ensures they bounce back within predefined boundaries.
     """
     for target in targets:
-        target["position"][0] += target["motion"][0]  # Update x
-        target["position"][1] += target["motion"][1]  # Update y
-        target["position"][2] += target["motion"][2]  # Update z
+        for i, bound in enumerate([1000, 1000, 500]):  # Bounds for x, y, z
+            target["position"][i] += target["motion"][i]  # Update position
 
-        # Keep positions within boundaries
-        target["position"][0] = max(0, min(1000, target["position"][0]))
-        target["position"][1] = max(0, min(1000, target["position"][1]))
-        target["position"][2] = max(0, min(500, target["position"][2]))
+            # Check if the target hits a boundary
+            if target["position"][i] <= 0 or target["position"][i] >= bound:
+                # Reverse direction when hitting a boundary
+                target["motion"][i] *= -1
+                target["position"][i] = max(0, min(bound, target["position"][i]))
     return targets
 
 
@@ -84,7 +84,7 @@ def start_sender():
                 sock.sendto(data.encode("utf-8"), server_address)
 
                 # Wait before sending the next update
-                time.sleep(1)
+                time.sleep(0.3)
 
     except KeyboardInterrupt:
         print("\nSender stopped manually.")

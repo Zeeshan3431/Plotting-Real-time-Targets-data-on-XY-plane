@@ -1,7 +1,6 @@
 import socket
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import numpy as np
 import threading
 from queue import Queue
 
@@ -18,7 +17,7 @@ def start_receiver_thread():
     """
     receiver_ip = "127.0.0.1"
     receiver_port = 5000
-    buffer_size = 1024
+    buffer_size = 65536
     
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -26,8 +25,7 @@ def start_receiver_thread():
             print(f"Receiver started. Listening on {receiver_ip}:{receiver_port}...")
             
             # Set the socket to non-blocking mode
-            sock.setblocking(0)
-            
+            sock.settimeout(0.01)
             while True:
                 try:
                     data, _ = sock.recvfrom(buffer_size)
@@ -53,8 +51,8 @@ def start_receiver():
 
     # Set up the plot
     fig, ax = plt.subplots()
-    ax.set_xlim(0, 1000)  # X-axis limits
-    ax.set_ylim(0, 1000)  # Y-axis limits
+    ax.set_xlim(0, 1500)  # X-axis limits
+    ax.set_ylim(0, 1500)  # Y-axis limits
     ax.set_title("Target Movement")
     ax.set_xlabel("X Position")
     ax.set_ylabel("Y Position")
@@ -66,15 +64,24 @@ def start_receiver():
     target_lines = [ax.plot([], [], color=color, label=f"Target {i+1} Path")[0] for i, color in enumerate(target_colors)]
 
     def update_plot(frame):
+        """
+        Updates the scatter plot and the paths of the targets based on received data.
+        """
         # Check if new data is available from the queue
         if not data_queue.empty():
             data = data_queue.get()
             targets = parse_data(data)
 
-            # Clear the previous paths and add the current position
+            # Update paths and scatter positions for each target
             for idx, target in enumerate(targets):
-                target_paths[idx]["x"].append(target["position"][0])
-                target_paths[idx]["y"].append(target["position"][1])
+                x, y = target["position"][0], target["position"][1]
+                target_paths[idx]["x"].append(x)
+                target_paths[idx]["y"].append(y)
+
+                # Ensure we only keep a limited number of points for smooth animation (optional)
+                if len(target_paths[idx]["x"]) > 50:  # Keep last 50 points
+                    target_paths[idx]["x"].pop(0)
+                    target_paths[idx]["y"].pop(0)
 
             # Update scatter plot (targets as dots) with target colors
             target_positions = [target["position"][:2] for target in targets]
@@ -85,18 +92,13 @@ def start_receiver():
                 target_lines[idx].set_data(target_paths[idx]["x"], target_paths[idx]["y"])
 
             # Update the color of the scatter plot based on target color list
-            scat.set_edgecolors(target_colors)
+            scat.set_facecolor(target_colors[:len(targets)])  # Color for active targets
+            scat.set_edgecolor(target_colors[:len(targets)])
 
         return scat, *target_lines
 
-    def on_move(event):
-        """
-        This function is no longer needed because we're not showing mouse position on the plot.
-        """
-        pass
-
     # Animation update
-    ani = animation.FuncAnimation(fig, update_plot, frames=100, interval=1000, blit=True)
+    ani = animation.FuncAnimation(fig, update_plot, frames=100, interval=100, blit=True)
 
     # Display the plot
     plt.legend()
